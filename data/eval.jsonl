@@ -1,0 +1,2 @@
+{"id":"eval-001","messages":[{"role":"user","content":"Return the word ready."}],"expected":"ready","expected_contains":["ready"]}
+{"id":"eval-002","messages":[{"role":"user","content":"What is 2 + 2? Answer with only the number."}],"expected":"4","expected_contains":["4"]}

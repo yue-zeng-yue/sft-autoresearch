@@ -1,0 +1,3 @@
+run_id	commit	score	validation_loss	exact_match	contains_rate	peak_vram_gb	training_seconds	status	description	config_hash
+20260424-142729-nogit	nogit	0.96397	1.207487	0.995248	1.0	7.284	0.307	ok	baseline mock smoke test	a8c8ce222f51
+20260424-143110-nogit	nogit	0.889731	1.261285	0.876661	0.926661	7.284	0.306	ok	mock lr 5e-5 test	ab2e3250c200

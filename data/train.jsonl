@@ -1,0 +1,3 @@
+{"id":"train-001","messages":[{"role":"user","content":"Return the word ready."},{"role":"assistant","content":"ready"}]}
+{"id":"train-002","messages":[{"role":"user","content":"What is 2 + 2? Answer with only the number."},{"role":"assistant","content":"4"}]}
+{"id":"train-003","messages":[{"role":"user","content":"Translate 'hello' to Chinese."},{"role":"assistant","content":"你好"}]}
