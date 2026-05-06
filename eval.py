@@ -201,6 +201,74 @@ def external_eval(config: dict[str, Any], run_dir: Path, model_dir: Path) -> dic
         metrics["score"] = round(score_from_parts(metrics, config), 6)
     return payload
 
+def peft_eval(config: dict[str, Any], run_dir: Path, model_dir: Path) -> dict[str, Any]:
+    import torch
+    from peft import PeftModel
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    data_path = resolve_path(config.get("data", {}).get("eval", "data/eval.jsonl"))
+    rows = load_jsonl(data_path)
+    eval_cfg = config.get("eval", {})
+    model_name = config.get("model", {}).get("name")
+
+    dtype_name = config.get("model", {}).get("torch_dtype", "bfloat16")
+    dtype = {
+        "bfloat16": torch.bfloat16,
+        "float16": torch.float16,
+        "float32": torch.float32,
+    }.get(dtype_name, torch.bfloat16)
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+    base_model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        torch_dtype=dtype,
+        device_map="auto",
+        trust_remote_code=True,
+    )
+    model = PeftModel.from_pretrained(base_model, str(model_dir))
+    model.eval()
+
+    predictions = []
+    for row in rows:
+        messages = row["messages"]
+        prompt = tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+        inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+
+        with torch.no_grad():
+            output_ids = model.generate(
+                **inputs,
+                max_new_tokens=int(eval_cfg.get("max_new_tokens", 256)),
+                do_sample=False,
+                temperature=None,
+            )
+
+        generated = output_ids[0][inputs["input_ids"].shape[-1]:]
+        text = tokenizer.decode(generated, skip_special_tokens=True).strip()
+        predictions.append(text)
+
+    train_metrics_path = run_dir / "train_metrics.json"
+    train_metrics = json.loads(train_metrics_path.read_text(encoding="utf-8")) if train_metrics_path.exists() else {}
+
+    metrics = evaluate_predictions(rows, predictions)
+    metrics["validation_loss"] = float(train_metrics.get("validation_loss") or 1.5)
+    metrics["training_seconds"] = float(train_metrics.get("training_seconds") or 0.0)
+    metrics["peak_vram_mb"] = train_metrics.get("peak_vram_mb")
+    metrics["score"] = round(score_from_parts(metrics, config), 6)
+
+    return {
+        "backend": "peft",
+        "metrics": metrics,
+        "predictions": [
+            {"id": row.get("id"), "prediction": pred}
+            for row, pred in zip(rows, predictions)
+        ],
+    }
+
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Evaluate a trained SFT adapter")
@@ -217,6 +285,8 @@ def main() -> int:
         payload = mock_eval(config, args.run_dir)
     elif backend == "swift_infer":
         payload = swift_infer_eval(config, args.run_dir, args.model_dir)
+    elif backend == "peft":
+        payload = peft_eval(config, args.run_dir, args.model_dir) 
     elif backend == "external":
         payload = external_eval(config, args.run_dir, args.model_dir)
     else:
