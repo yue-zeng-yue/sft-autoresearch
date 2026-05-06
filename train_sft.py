@@ -187,15 +187,28 @@ def swift_train(config: dict[str, Any], run_dir: Path, timeout: int | None) -> i
     swift_config_path = run_dir / "swift_config.yaml"
     with swift_config_path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(swift_config, f, sort_keys=False, allow_unicode=True)
+    cmd = [executable, command]
+    for key, value in swift_config.items():
+        if isinstance(value, bool):
+            cmd.extend([f"--{key}", "true" if value else "false"])
+        elif isinstance(value, list):
+            for item in value:
+                cmd.extend([f"--{key}", str(item)])
+        else:
+            cmd.extend([f"--{key}", str(value)])
 
-    cmd = [executable, command, "--config", str(swift_config_path)]
+
     start = time.time()
     code = run_process(cmd, timeout=timeout, cwd=ROOT)
     training_seconds = time.time() - start
 
     model_dir = run_dir / "model"
-    checkpoint_dirs = sorted(model_dir.glob("checkpoint-*")) if model_dir.exists() else []
+    checkpoint_dirs = sorted(
+        model_dir.glob("**/checkpoint-*"),
+        key=lambda p: p.stat().st_mtime,
+    ) if model_dir.exists() else []
     checkpoint_dir = checkpoint_dirs[-1] if checkpoint_dirs else model_dir
+
 
     dump_json(
         run_dir / "train_metrics.json",
