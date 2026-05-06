@@ -1,10 +1,10 @@
 # Agent-editable SFT hyperparameter config.
 # For real training, set backend: swift after ms-swift is installed.
-backend: mock
+backend: swift
 seed: 42
 
 experiment:
-  description: baseline mock smoke test
+  description: baseline swift peft eval
   time_budget_seconds: 1800
   kill_after_seconds: 3600
   primary_metric: score
@@ -21,9 +21,12 @@ data:
   eval: data/eval.jsonl
 
 training:
+  max_steps: 20
+  max_length: 1024
+  save_steps: 10
+  eval_steps: 10
   train_type: lora
   num_train_epochs: 1
-  max_steps: 100
   learning_rate: 2.0e-5
   lr_scheduler_type: cosine
   warmup_ratio: 0.03
@@ -31,13 +34,11 @@ training:
   max_grad_norm: 1.0
   per_device_train_batch_size: 1
   per_device_eval_batch_size: 1
-  gradient_accumulation_steps: 16
-  max_length: 2048
-  logging_steps: 5
-  eval_steps: 50
-  save_steps: 50
-  save_total_limit: 2
+  gradient_accumulation_steps: 1
+  logging_steps: 1
+  save_total_limit: 1
   dataloader_num_workers: 2
+
 
 lora:
   lora_rank: 16
@@ -46,15 +47,13 @@ lora:
   target_modules: all-linear
 
 swift:
-  executable: swift
+  executable: .venv/bin/swift
   command: sft
-  # ms-swift versions differ: recent examples use tuner_type, some docs use train_type.
   train_type_arg: tuner_type
-  extra_args:
-    check_model: false
+
 
 eval:
-  backend: mock
+  backend: peft
   max_new_tokens: 256
   temperature: 0.0
   external_command: []
